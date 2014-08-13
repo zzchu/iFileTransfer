@@ -25,8 +25,8 @@ int main (int argc, const char * argv[]) {
 The script usage:\n\n\
 Copy file from desktop to device (App Documents) or specify path with filename:\n\
     iFileTransfer -o copy -id \"Device_ID\"  -app \"Application_ID\" -from \"from file\" [-to \"to file\"]\n\
-download file from device to MAC:\n\
-    iFileTransfer -o download -id \"Device_ID\" -app \"Application_ID\" -from \"from file\" -to \"to file\"\n\
+download file or directory from device to MAC:\n\
+    iFileTransfer -o download -id \"Device_ID\" -app \"Application_ID\" -from \"from file or directory\" -to \"to file or directory\"\n\
 List Applications:\n\
     iFileTransfer -o list -id \"Device_ID\"\n\
 List Files in Application Documents (path):\n\
