@@ -667,7 +667,7 @@ com.apple.mobile.application_uninstalled
  * @param path Full pathname to file/directory to check
  */
 - (BOOL)fileExistsAtPath:(NSString *)path;
-
+- (BOOL)fileExistsAtPath:(NSString *)path isDirectory:(BOOL*)bDir;
 /**
  * Return a array containing a list of simple filenames found
  * in the specified directory.  The entries for "." and ".." are

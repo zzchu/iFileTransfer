@@ -13,7 +13,7 @@
 
 int main (int argc, const char * argv[]) {
 
-    NSAutoreleasePool * pool = [[NSAutoreleasePool alloc] init];
+    //NSAutoreleasePool * pool = [[NSAutoreleasePool alloc] init];
     
     
     //get arguments
@@ -71,16 +71,68 @@ Show device info:\n\
         BOOL isdir;
         isdir = NO;
         
-//        if (fromFile is folder) {
-//            if (toFile is folder && toFile is exist) {
-//                //download the folder content
-//            }
-//            else
-//            {
-//                NSLog(@"Error:the target folder :%@ isn't exist!", toFile);
-//            }
-//        }
-//        else
+        if (NO == [appDir fileExistsAtPath:fromFile isDirectory:&isdir]) {
+            NSLog(@"the source :%@ isn't exist", fromFile);
+            return 1001;
+        }
+        if (isdir == YES)
+        {
+            if ([fm fileExistsAtPath:toFile isDirectory:&isdir] && isdir) {
+                
+                //download the folder content
+                NSArray *files = [appDir recursiveDirectoryContents:fromFile];
+                
+                for (NSString *filePath in files) {
+                    NSError *error;
+                    [appDir fileExistsAtPath:filePath isDirectory:&isdir];
+                    
+                    //Get the target file path
+                    NSArray *fromFileComponents = [fromFile pathComponents];
+                    NSArray *filePathComponents = [filePath pathComponents];
+                    NSArray *toFileComponents = [toFile pathComponents];
+                    
+                    NSUInteger commonComponentNum = [fromFileComponents count]-1;
+                    NSUInteger arrayCapacity = [filePathComponents count] + [toFileComponents count];
+                    NSMutableArray *finalComponents = [NSMutableArray arrayWithCapacity:arrayCapacity];
+                    
+                    [finalComponents addObjectsFromArray:toFileComponents];
+                    [finalComponents addObjectsFromArray:[filePathComponents subarrayWithRange:NSMakeRange(commonComponentNum, [filePathComponents count]-commonComponentNum)]];
+                    NSString *toFileFullPath = [NSString pathWithComponents:finalComponents];
+                    
+                    if (isdir == YES) {
+                        if (NO == [fm createDirectoryAtPath:toFileFullPath withIntermediateDirectories:YES attributes:nil error:&error]) {
+                            NSLog(@"create directory:%@ failed!", toFileFullPath);
+                        };
+                    }
+                    else
+                    {
+                        if ([fm fileExistsAtPath:toFileFullPath]) {
+                            //remove the old file
+                            NSError *error;
+                            
+                            BOOL success = [fm removeItemAtPath:toFileFullPath error:&error];
+                            if (!success) NSLog(@"Error: %@", [error localizedDescription]);
+                        }
+                        
+                        if (YES == [appDir copyRemoteFile:filePath toLocalFile:toFileFullPath])
+                        {
+                            NSLog(@"download file:%@ successfully!", filePath);
+                        }
+                        else
+                        {
+                            NSLog(@"download failed!");
+                            return 1001;
+                        }
+                    }
+                }
+            }
+            else
+            {
+                NSLog(@"Error:the target folder :%@ is uncorrect!", toFile);
+                return 1001;
+            }
+        }
+        else //the fromFile is a file not a folder
         {
         if ([fm fileExistsAtPath:toFile isDirectory:&isdir]) {
             if (isdir) {
@@ -197,7 +249,7 @@ Show device info:\n\
         }
     }
     
-    [pool drain];
+    //[pool drain];
     return 0;
 }
 

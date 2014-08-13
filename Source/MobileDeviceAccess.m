@@ -554,6 +554,24 @@ AMDShutdownNotificationProxy(socket);
 
 - (BOOL)fileExistsAtPath:(NSString *)path
 {
+    if (!path) {
+        [self setLastError:@"Input path is nil"];
+        return NO;
+    }
+    if ([self ensureConnectionIsOpen]) {
+        afc_dictionary dict;
+        if (AFCFileInfoOpen(_afc, [path UTF8String], &dict)==0) {
+            AFCKeyValueClose(dict);
+            [self clearLastError];
+            return YES;
+        }
+    }
+    return NO;
+}
+
+
+- (BOOL)fileExistsAtPath:(NSString *)path isDirectory:(BOOL *)bDir
+{
 	if (!path) {
 		[self setLastError:@"Input path is nil"];
 		return NO;
@@ -562,6 +580,20 @@ AMDShutdownNotificationProxy(socket);
 		afc_dictionary dict;
 		if (AFCFileInfoOpen(_afc, [path UTF8String], &dict)==0) {
 			AFCKeyValueClose(dict);
+
+            int ret=0;
+            afc_directory directory;
+            ret = AFCDirectoryOpen(_afc, [path UTF8String], &directory);
+            
+            if (ret == 0) {
+                *bDir = YES;
+            }
+            else if(ret == 4)
+            {
+                *bDir = NO;
+            }
+            
+            AFCDirectoryClose(_afc,directory);
 			[self clearLastError];
 			return YES;
 		}
@@ -889,8 +921,8 @@ static BOOL read_dir( AFCDirectoryAccess *self, afc_connection afc, NSString *pa
 						[out writeData:[NSData dataWithBytes:[buff mutableBytes] length:n]];
 					}
                     [out synchronizeFile];
-                    NSLog(@"flush & download file is completed!");
-                    exit(0);
+                    //NSLog(@"flush & download file is completed!");
+                    //exit(0);
 					[buff release];
 					[out closeFile];
 					[self clearLastError];
