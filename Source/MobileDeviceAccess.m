@@ -587,13 +587,14 @@ AMDShutdownNotificationProxy(socket);
             
             if (ret == 0) {
                 *bDir = YES;
+                AFCDirectoryClose(_afc,directory);
             }
             else if(ret == 4)
             {
                 *bDir = NO;
             }
             
-            AFCDirectoryClose(_afc,directory);
+
 			[self clearLastError];
 			return YES;
 		}
