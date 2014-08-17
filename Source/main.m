@@ -250,6 +250,7 @@ Show device info:\n\
     }
     
     //[pool drain];
+    NSLog(@"iFileTransfer done well!");
     return 0;
 }
 
