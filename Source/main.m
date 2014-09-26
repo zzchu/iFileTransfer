@@ -200,17 +200,95 @@ Show device info:\n\
         
         AFCApplicationDirectory *appDir = [device newAFCApplicationDirectory:appId];
         
-        NSArray *files = [appDir directoryContents:@"/Documents"];
-        NSLog(@"app Documents files: %@", files);
+        NSFileManager *fm = [NSFileManager defaultManager];
+        BOOL isdir;
+        isdir = NO;
         
-        if (!toFile) {
-            [appDir copyLocalFile:fromFile toRemoteDir:@"/Documents"];
-        } else {
-            [appDir copyLocalFile:fromFile toRemoteFile:toFile];
+        if (NO == [fm fileExistsAtPath:fromFile isDirectory:&isdir]) {
+            NSLog(@"the source :%@ isn't exist", fromFile);
+            return 1001;
         }
-        
-        files = [appDir directoryContents:@"/Documents"];
-        NSLog(@"app Documents files: %@", files);
+        if (isdir == YES)
+        {
+            //NSArray* dirs = [fm subpathsOfDirectoryAtPath:fromFile error:NULL];
+            if ([appDir fileExistsAtPath:toFile isDirectory:&isdir] && isdir) {
+                
+                //download the folder content
+                NSArray *files = [fm subpathsOfDirectoryAtPath:fromFile error:NULL];
+                
+                for (NSString *filePath in files) {
+
+                    //Get the target file path
+                    NSArray *fromFileComponents = [fromFile pathComponents];
+                    NSArray *filePathComponents = [filePath pathComponents];
+                    NSArray *toFileComponents = [toFile pathComponents];
+                    
+                    NSUInteger commonComponentNum = [fromFileComponents count]-1;
+                    NSUInteger targetArrayCapacity = [filePathComponents count] + [toFileComponents count] + 1;
+                    NSUInteger sourceArrayCapacity = [filePathComponents count] + [fromFileComponents count] + 1;
+                    NSMutableArray *finalComponents = [NSMutableArray arrayWithCapacity:targetArrayCapacity];
+                    NSMutableArray *sourceComponents = [NSMutableArray arrayWithCapacity:sourceArrayCapacity];
+                    
+                    [finalComponents addObjectsFromArray:toFileComponents];
+                    [finalComponents addObjectsFromArray:[fromFileComponents subarrayWithRange:NSMakeRange(commonComponentNum, 1)]];
+                    [finalComponents addObjectsFromArray:filePathComponents];
+                    
+                    [sourceComponents addObjectsFromArray:fromFileComponents];
+                    [sourceComponents addObjectsFromArray:filePathComponents];
+                    
+                    NSString *toFileFullPath = [NSString pathWithComponents:finalComponents];
+                    NSString *fromFileFullPath = [NSString pathWithComponents:sourceComponents];
+                    
+
+                    if ([fm fileExistsAtPath:fromFileFullPath isDirectory:&isdir] && isdir) {
+                        if (NO == [appDir mkdir:toFileFullPath]) {
+                            NSLog(@"create directory:%@ failed!", toFileFullPath);
+                        };
+                    }
+                    else
+                    {
+                        /*
+                        if ([fm fileExistsAtPath:toFileFullPath]) {
+                            //remove the old file
+                            NSError *error;
+                            
+                            BOOL success = [fm removeItemAtPath:toFileFullPath error:&error];
+                            if (!success) NSLog(@"Error: %@", [error localizedDescription]);
+                        }*/
+                        
+                        if (YES == [appDir copyLocalFile:fromFileFullPath toRemoteFile:toFileFullPath])
+                        {
+                            NSLog(@"upload file:%@ successfully!", fromFileFullPath);
+                        }
+                        else
+                        {
+                            NSLog(@"upload failed!");
+                            return 1001;
+                        }
+                    }
+                }
+            }
+            else
+            {
+                NSLog(@"Error:the target folder :%@ is uncorrect!", toFile);
+                return 1001;
+            }
+
+        }
+        else
+        {
+            NSArray *files = [appDir directoryContents:@"/Documents"];
+            NSLog(@"app Documents files: %@", files);
+            
+            if (!toFile) {
+                [appDir copyLocalFile:fromFile toRemoteDir:@"/Documents"];
+            } else {
+                [appDir copyLocalFile:fromFile toRemoteFile:toFile];
+            }
+            
+            files = [appDir directoryContents:@"/Documents"];
+            NSLog(@"app Documents files: %@", files);
+        }
         
     } else if ([option isEqualToString:@"listFiles"]) {
         
