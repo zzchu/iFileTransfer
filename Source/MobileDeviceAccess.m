@@ -431,6 +431,7 @@ AMDShutdownNotificationProxy(socket);
 {
 	if (ret != 0) {
 		[self setLastError:[NSString stringWithFormat:@"%s failed: Return code = 0x%04X",func,ret]];
+        NSLog(@"%s failed: Return code = 0x%04X",func,ret);
 		return NO;
 	}
 	[self clearLastError];
@@ -714,7 +715,16 @@ static BOOL read_dir( AFCDirectoryAccess *self, afc_connection afc, NSString *pa
 		return NO;
 	}
 	if (![self ensureConnectionIsOpen]) return NO;
-	return [self checkStatus:AFCDirectoryCreate(_afc, [path UTF8String]) from:"AFCDirectoryCreate"];
+	//return [self checkStatus:AFCDirectoryCreate(_afc, [path UTF8String]) from:"AFCDirectoryCreate"];
+    if ([self checkStatus:AFCDirectoryCreate(_afc, [path UTF8String]) from:"AFCDirectoryCreate"])
+    {
+        return YES;
+    }
+    else
+    {
+        NSLog(@"path: %s", [path UTF8String]);
+        return NO;
+    }
 }
 
 - (BOOL)unlink:(NSString*)path
@@ -789,6 +799,10 @@ static BOOL read_dir( AFCDirectoryAccess *self, afc_connection afc, NSString *pa
 	if ([self checkStatus:AFCFileRefOpen(_afc, [path UTF8String], 2, &ref) from:"AFCFileRefOpen"]) {
 		return [[[AFCFileReference alloc] initWithPath:path reference:ref afc:_afc] autorelease];
 	}
+    else
+    {
+        NSLog(@"path: %s", [path UTF8String]);
+    }
 	// if mode==0, ret=7
 	// if file does not exist, ret=8
 	return nil;
@@ -819,6 +833,10 @@ static BOOL read_dir( AFCDirectoryAccess *self, afc_connection afc, NSString *pa
 			// output file
 			NSFileHandle *in = [NSFileHandle fileHandleForReadingAtPath:path1];
 			if (in) {
+                // open remote file for write
+                //AFCFileReference *out = [self openForWrite:path2];
+                AFCFileReference *out = [self openForReadWrite:path2];
+
 				NSMutableDictionary *info = [[NSMutableDictionary new] autorelease];
 				struct stat s;
 				stat([path1 fileSystemRepresentation],&s);
@@ -826,8 +844,6 @@ static BOOL read_dir( AFCDirectoryAccess *self, afc_connection afc, NSString *pa
 				[info setObject:path2 forKey:@"Target"];
 				[info setObject:[NSNumber numberWithInt:s.st_size] forKey:@"Size"];
 				[nc postNotificationName:@"AFCFileCopyBegin" object:self userInfo:info];
-				// open remote file for write
-				AFCFileReference *out = [self openForWrite:path2];
 				if (out) {
 					// copy all content across 10K at a time
 					const uint32_t bufsz = 10240;

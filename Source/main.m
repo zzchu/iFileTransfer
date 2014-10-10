@@ -7,6 +7,11 @@
 //  SVN: http://slim@svn.dev.iccoss.com/repos/trunk/Mac/mobile_device_manager/
 //
 
+//Ruling about the return value
+// 0: iFileTransfer work successfully
+// 0x01: iFileTransfer failed, and the failed cannot be recovered by re-run
+// 0x02: iFileTransfer is unstable, you can re-run iFileTransfer to make it successful.
+
 #import <Foundation/Foundation.h>
 #import "DeviceAdapter.h"
 #import "MobileDeviceAccess.h"
@@ -19,6 +24,9 @@ int main (int argc, const char * argv[]) {
     //get arguments
 	NSUserDefaults *arguments = [NSUserDefaults standardUserDefaults];
 	NSString *option = [arguments stringForKey:@"o"];
+
+//    delete file or directory from device:\n\
+//    iFileTransfer -o delete -id \"Device_ID\" -app \"Application_ID\" -target \"target file or directory\"\n\
     
     if	(!option) {
         printf("\n\
@@ -35,17 +43,16 @@ Get appId for application name:\n\
     iFileTransfer -o getAppId -id \"Device_ID\" -name Application_Name\n\
 Show device info:\n\
     iFileTransfer -o info -id \"Device_ID\"\n");
-        return 1001;
+        return 0x01;
 	}
-    
+
     DeviceAdapter *adapter = [[DeviceAdapter alloc] init];
-	CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.1, false);
-    
+RUN_AGAIN:
+    CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.1, false);
     if(![adapter isDeviceConnected]) {
         NSLog(@"No device detected!");
-        return 1001;
+        return 0x01;
     }
-    
     NSString *deviceId = [arguments stringForKey:@"id"];
     AMDevice *device = nil;
     if(deviceId.length > 0)
@@ -54,7 +61,6 @@ Show device info:\n\
         device = adapter.iosDevices.lastObject;
     
     if ([option isEqualToString:@"download"]) {
-        NSLog(@"Will download file from Device: %@", device);
         
         NSString *fromFile = [arguments stringForKey:@"from"];
         NSString *toFile = [arguments stringForKey:@"to"];
@@ -62,8 +68,10 @@ Show device info:\n\
         
         if (!fromFile || !appId || !toFile) {
             NSLog(@"no fromFile | no appId | no toFile");
-            return 1001;
+            return 0x01;
         }
+        
+        NSLog(@"Will download file: %@ from Device: %@", fromFile, device);
         
         AFCApplicationDirectory *appDir = [device newAFCApplicationDirectory:appId];
         
@@ -73,7 +81,7 @@ Show device info:\n\
         
         if (NO == [appDir fileExistsAtPath:fromFile isDirectory:&isdir]) {
             NSLog(@"the source :%@ isn't exist", fromFile);
-            return 1001;
+            return 0x01;
         }
         if (isdir == YES)
         {
@@ -102,6 +110,7 @@ Show device info:\n\
                     if (isdir == YES) {
                         if (NO == [fm createDirectoryAtPath:toFileFullPath withIntermediateDirectories:YES attributes:nil error:&error]) {
                             NSLog(@"create directory:%@ failed!", toFileFullPath);
+                            return 0x01;
                         };
                     }
                     else
@@ -116,12 +125,14 @@ Show device info:\n\
                         
                         if (YES == [appDir copyRemoteFile:filePath toLocalFile:toFileFullPath])
                         {
-                            NSLog(@"download file:%@ successfully!", filePath);
+                            //NSLog(@"download file:%@ successfully!", filePath);
                         }
                         else
                         {
-                            NSLog(@"download failed!");
-                            return 1001;
+                            NSLog(@"download failed and try it again!");
+                            //return 0x02;
+                            //[pool drain];
+                            goto RUN_AGAIN;
                         }
                     }
                 }
@@ -129,7 +140,7 @@ Show device info:\n\
             else
             {
                 NSLog(@"Error:the target folder :%@ is uncorrect!", toFile);
-                return 1001;
+                return 0x01;
             }
         }
         else //the fromFile is a file not a folder
@@ -143,7 +154,7 @@ Show device info:\n\
                 else
                 {
                     NSLog(@"download failed!");
-                    return 1001;
+                    return 0x01;
                 }
                 
             }
@@ -167,7 +178,7 @@ Show device info:\n\
                 else
                 {
                     NSLog(@"download failed!");
-                    return 1001;
+                    return 0x01;
                 }
             }
         }
@@ -180,23 +191,23 @@ Show device info:\n\
             else
             {
                 NSLog(@"download failed!");
-                return 1001;
+                return 0x01;
             }
 
         }
         }
         
     } else if ([option isEqualToString:@"copy"]) {
-        NSLog(@"Will copy to Device: %@", device);
-        
         NSString *fromFile = [arguments stringForKey:@"from"];
         NSString *toFile = [arguments stringForKey:@"to"];
         NSString *appId = [arguments stringForKey:@"app"];
         
         if (!fromFile || !appId) {
             NSLog(@"no fromFile | no appId");
-            return 1001;
+            return 0x01;
         }
+        
+        NSLog(@"Will upload file: %@ to Device: %@", fromFile, device);
         
         AFCApplicationDirectory *appDir = [device newAFCApplicationDirectory:appId];
         
@@ -206,7 +217,7 @@ Show device info:\n\
         
         if (NO == [fm fileExistsAtPath:fromFile isDirectory:&isdir]) {
             NSLog(@"the source :%@ isn't exist", fromFile);
-            return 1001;
+            return 0x01;
         }
         if (isdir == YES)
         {
@@ -241,12 +252,22 @@ Show device info:\n\
                     
 
                     if ([fm fileExistsAtPath:fromFileFullPath isDirectory:&isdir] && isdir) {
+                        if ((YES == [appDir fileExistsAtPath:toFileFullPath isDirectory:&isdir]) && (isdir==YES)) {
+                            continue;
+                        }
                         if (NO == [appDir mkdir:toFileFullPath]) {
-                            NSLog(@"create directory:%@ failed!", toFileFullPath);
+                            NSLog(@"create directory:%@ failed and try it again!", toFileFullPath);
+                            //return 0x02;
+                            //[pool drain];
+                            goto RUN_AGAIN;
                         };
                     }
                     else
                     {
+                        if ((YES == [appDir fileExistsAtPath:toFileFullPath isDirectory:&isdir]) && (isdir==NO)) {
+                            NSLog(@"file:%@ already exist", toFile);
+                            continue;
+                        }
                         /*
                         if ([fm fileExistsAtPath:toFileFullPath]) {
                             //remove the old file
@@ -258,12 +279,14 @@ Show device info:\n\
                         
                         if (YES == [appDir copyLocalFile:fromFileFullPath toRemoteFile:toFileFullPath])
                         {
-                            NSLog(@"upload file:%@ successfully!", fromFileFullPath);
+                            //NSLog(@"upload file to:%@ successfully!", toFileFullPath);
                         }
                         else
                         {
-                            NSLog(@"upload failed!");
-                            return 1001;
+                            NSLog(@"upload file to:%@ failed and try it again!", toFileFullPath);
+                            //return 0x02;
+                            //[pool drain];
+                            goto RUN_AGAIN;
                         }
                     }
                 }
@@ -271,33 +294,74 @@ Show device info:\n\
             else
             {
                 NSLog(@"Error:the target folder :%@ is uncorrect!", toFile);
-                return 1001;
+                return 0x01;
             }
 
         }
         else
         {
+            BOOL bRet;
             NSArray *files = [appDir directoryContents:@"/Documents"];
             NSLog(@"app Documents files: %@", files);
             
             if (!toFile) {
-                [appDir copyLocalFile:fromFile toRemoteDir:@"/Documents"];
+                bRet = [appDir copyLocalFile:fromFile toRemoteDir:@"/Documents"];
             } else {
-                [appDir copyLocalFile:fromFile toRemoteFile:toFile];
+                if ((YES == [appDir fileExistsAtPath:toFile isDirectory:&isdir]) && (isdir==NO)) {
+                    bRet = YES;
+                    NSLog(@"file:%@ alread exist", toFile);
+                }
+                else
+                {
+                    bRet = [appDir copyLocalFile:fromFile toRemoteFile:toFile];
+                }
+            }
+            
+            if (NO == bRet)
+            {
+                NSLog(@"upload file:%@ failed!", fromFile);
+                return 0x01;
             }
             
             files = [appDir directoryContents:@"/Documents"];
             NSLog(@"app Documents files: %@", files);
         }
         
-    } else if ([option isEqualToString:@"listFiles"]) {
+    }else if ([option isEqualToString:@"delete"]) {
+        
+        NSLog(@"Will delete the directory from Device: %@", device);
+        
+        NSString *targetFile = [arguments stringForKey:@"target"];
+        NSString *appId = [arguments stringForKey:@"app"];
+        
+        if (!targetFile || !appId) {
+            NSLog(@"no target file | no appId");
+            return 0x01;
+        }
+        
+        AFCApplicationDirectory *appDir = [device newAFCApplicationDirectory:appId];
+        
+        NSFileManager *fm = [NSFileManager defaultManager];
+        BOOL isdir;
+        isdir = NO;
+        
+        NSArray *files = [appDir directoryContents:@"/Documents"];
+        NSLog(@"app Documents files: %@", files);
+        
+        //Delete the target diretory or file
+        //[appDir copyLocalFile:fromFile toRemoteFile:toFile];
+        
+        files = [appDir directoryContents:@"/Documents"];
+        NSLog(@"app Documents files: %@", files);
+        
+    }else if ([option isEqualToString:@"listFiles"]) {
         
         NSString *path = [arguments stringForKey:@"path"];
         NSString *appId = [arguments stringForKey:@"app"];
         
         if (!appId) {
             NSLog(@"no appId");
-            return 1001;
+            return 0x01;
         }
         
         AFCApplicationDirectory *appDir = [device newAFCApplicationDirectory:appId];
