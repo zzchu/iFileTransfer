@@ -2685,10 +2685,13 @@ bail:
 
 	case ADNCI_MSG_CONNECTED:
 		d = [AMDevice deviceFrom:info->dev];
-		[_devices addObject:d];
-		if (_listener && [_listener respondsToSelector:@selector(deviceConnected:)]) {
-			[_listener deviceConnected:d];
-		}
+        if (d) {
+            [_devices addObject:d];
+            if (_listener && [_listener respondsToSelector:@selector(deviceConnected:)]) {
+                [_listener deviceConnected:d];
+            }
+        }
+
 		break;
 
 	case ADNCI_MSG_DISCONNECTED:
