@@ -41,6 +41,8 @@ List Files in Application Documents (path):\n\
     iFileTransfer -o listFiles -id \"Device_ID\" -app Appliction_ID [-path /Documents]\n\
 Get appId for application name:\n\
     iFileTransfer -o getAppId -id \"Device_ID\" -name Application_Name\n\
+Get the version of iFileTransfer tool:\n\
+    iFileTransfer -o version\n\
 Show device info:\n\
     iFileTransfer -o info -id \"Device_ID\"\n");
         return 0x01;
@@ -389,6 +391,9 @@ RUN_AGAIN:
             }
             
         }
+    } else if ([option isEqualToString:@"version"]) {
+        NSLog(@"version: 10.0.0");
+        NSLog(@"main update: fix the crash issue when can't find connected device");
     }
     
     //[pool drain];
