@@ -228,7 +228,12 @@ RUN_AGAIN:
                 
                 //download the folder content
                 NSArray *files = [fm subpathsOfDirectoryAtPath:fromFile error:NULL];
-                
+
+                if ([fromFile hasSuffix:@"/"] == NO) {
+                    NSString *toDir = [toFile stringByAppendingPathComponent:[fromFile lastPathComponent]];
+                    [appDir mkdir:toDir];
+                }
+
                 for (NSString *filePath in files) {
 
                     //Get the target file path
@@ -252,7 +257,6 @@ RUN_AGAIN:
                     NSString *toFileFullPath = [NSString pathWithComponents:finalComponents];
                     NSString *fromFileFullPath = [NSString pathWithComponents:sourceComponents];
                     
-
                     if ([fm fileExistsAtPath:fromFileFullPath isDirectory:&isdir] && isdir) {
                         if ((YES == [appDir fileExistsAtPath:toFileFullPath isDirectory:&isdir]) && (isdir==YES)) {
                             continue;
