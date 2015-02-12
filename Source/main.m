@@ -25,8 +25,6 @@ int main (int argc, const char * argv[]) {
 	NSUserDefaults *arguments = [NSUserDefaults standardUserDefaults];
 	NSString *option = [arguments stringForKey:@"o"];
 
-//    delete file or directory from device:\n\
-//    iFileTransfer -o delete -id \"Device_ID\" -app \"Application_ID\" -target \"target file or directory\"\n\
     
     if	(!option) {
         printf("\n\
@@ -35,6 +33,8 @@ Copy file from desktop to device (App Documents) or specify path with filename:\
     iFileTransfer -o copy -id \"Device_ID\"  -app \"Application_ID\" -from \"from file\" [-to \"to file\"]\n\
 download file or directory from device to MAC:\n\
     iFileTransfer -o download -id \"Device_ID\" -app \"Application_ID\" -from \"from file or directory\" -to \"to file or directory\"\n\
+delete file or directory from device:\n\
+    iFileTransfer -o delete -id \"Device_ID\" -app \"Application_ID\" -target \"target file or directory\"\n\
 List Applications:\n\
     iFileTransfer -o list -id \"Device_ID\"\n\
 List Files in Application Documents (path):\n\
@@ -271,17 +271,10 @@ RUN_AGAIN:
                     else
                     {
                         if ((YES == [appDir fileExistsAtPath:toFileFullPath isDirectory:&isdir]) && (isdir==NO)) {
-                            NSLog(@"file:%@ already exist", toFile);
-                            continue;
-                        }
-                        /*
-                        if ([fm fileExistsAtPath:toFileFullPath]) {
-                            //remove the old file
                             NSError *error;
-                            
-                            BOOL success = [fm removeItemAtPath:toFileFullPath error:&error];
+                            BOOL success = [appDir unlink:toFileFullPath];
                             if (!success) NSLog(@"Error: %@", [error localizedDescription]);
-                        }*/
+                        }
                         
                         if (YES == [appDir copyLocalFile:fromFileFullPath toRemoteFile:toFileFullPath])
                         {
@@ -307,8 +300,8 @@ RUN_AGAIN:
         else
         {
             BOOL bRet;
-            NSArray *files = [appDir directoryContents:@"/Documents"];
-            NSLog(@"app Documents files: %@", files);
+//            NSArray *files = [appDir directoryContents:@"/Documents"];
+//            NSLog(@"app Documents files: %@", files);
             
             if (!toFile) {
                 bRet = [appDir copyLocalFile:fromFile toRemoteDir:@"/Documents"];
@@ -329,16 +322,15 @@ RUN_AGAIN:
                 return 0x01;
             }
             
-            files = [appDir directoryContents:@"/Documents"];
-            NSLog(@"app Documents files: %@", files);
+//            files = [appDir directoryContents:@"/Documents"];
+//            NSLog(@"app Documents files: %@", files);
         }
         
     }else if ([option isEqualToString:@"delete"]) {
         
-        NSLog(@"Will delete the directory from Device: %@", device);
-        
         NSString *targetFile = [arguments stringForKey:@"target"];
         NSString *appId = [arguments stringForKey:@"app"];
+        NSLog(@"Will delete:%@ from Device: %@", targetFile, device);
         
         if (!targetFile || !appId) {
             NSLog(@"no target file | no appId");
@@ -347,18 +339,40 @@ RUN_AGAIN:
         
         AFCApplicationDirectory *appDir = [device newAFCApplicationDirectory:appId];
         
-        NSFileManager *fm = [NSFileManager defaultManager];
         BOOL isdir;
-        isdir = NO;
-        
-        NSArray *files = [appDir directoryContents:@"/Documents"];
-        NSLog(@"app Documents files: %@", files);
+//        NSArray *files = [appDir directoryContents:@"/Documents"];
+//        NSLog(@"app Documents files: %@", files);
         
         //Delete the target diretory or file
-        //[appDir copyLocalFile:fromFile toRemoteFile:toFile];
+        if( YES == [appDir fileExistsAtPath:targetFile isDirectory:&isdir] )
+        {
+            if(isdir)
+            {
+                NSArray *files = [appDir recursiveDirectoryContents:targetFile];
+                NSArray* reversedArray = [[files reverseObjectEnumerator] allObjects];
+                for (NSString *filePath in reversedArray) {
+                    if (NO == [appDir unlink:filePath])
+                    {
+                        NSLog(@"remove path: %@ failed!!", filePath);
+                        return 0x01;
+                    }
+                }
+            }
+            else {
+                if (NO == [appDir unlink:targetFile] )
+                {
+                     NSLog(@"remove path: %@ failed!!", targetFile);
+                    return 0x01;
+                }
+            }
+        }
+        else{
+            NSLog(@"Can't find: %@", targetFile);
+            return 0x01;
+        }
         
-        files = [appDir directoryContents:@"/Documents"];
-        NSLog(@"app Documents files: %@", files);
+//        files = [appDir directoryContents:@"/Documents"];
+//        NSLog(@"app Documents files: %@", files);
         
     }else if ([option isEqualToString:@"listFiles"]) {
         
