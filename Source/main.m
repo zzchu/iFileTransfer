@@ -37,6 +37,10 @@ delete file or directory from device:\n\
     iFileTransfer -o delete -id \"Device_ID\" -app \"Application_ID\" -target \"target file or directory\"\n\
 List Applications:\n\
     iFileTransfer -o list -id \"Device_ID\"\n\
+List the crash reports:\n\
+    iFileTransfer -o listcrashreport -id \"Device_ID\"\n\
+Get the specific crash report:\n\
+    iFileTransfer -o getcrashlog -id \"Device_ID\" -from \"from file\" -to \"to file\"\n\
 List Files in Application Documents (path):\n\
     iFileTransfer -o listFiles -id \"Device_ID\" -app Appliction_ID [-path /Documents]\n\
 Get appId for application name:\n\
@@ -48,6 +52,7 @@ Show device info:\n\
         return 0x01;
 	}
 
+    
     DeviceAdapter *adapter = [[DeviceAdapter alloc] init];
 RUN_AGAIN:
     CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.1, false);
@@ -409,6 +414,47 @@ RUN_AGAIN:
             }
             
         }
+    } else if ([option isEqualToString:@"listcrashreport"]) {
+
+        AFCCrashLogDirectory *crashLogDir = [device newAFCCrashLogDirectory];
+        
+        NSArray *files = [crashLogDir directoryContents:@"/Retired"];
+        NSLog(@"crash report list: %@", files);
+        
+    } else if ([option isEqualToString:@"getcrashlog"]) {
+        
+        NSString *fromFile = [arguments stringForKey:@"from"];
+        NSString *toDir = [arguments stringForKey:@"to"];
+        NSLog(@"Will get the crash log:%@ to: %@", fromFile, toDir);
+        
+        AFCCrashLogDirectory *crashLogDir = [device newAFCCrashLogDirectory];
+        
+        NSArray *files = [crashLogDir directoryContents:@"/Retired"];
+        NSLog(@"crash Retired files: %@", files);
+        
+        NSFileManager *fm = [NSFileManager defaultManager];
+        BOOL isdir;
+        isdir = NO;
+        if ([fm fileExistsAtPath:toDir isDirectory:&isdir] && isdir) {
+            
+            NSString *fromPath = [NSString stringWithFormat:@"/Retired/%@", fromFile];
+
+            if (YES == [crashLogDir copyRemoteFile:fromPath toLocalDir:toDir])
+            {
+                NSLog(@"get crash log successfully!");
+            }
+            else
+            {
+                NSLog(@"Failed: can't get crash log! please check the input crash log name!");
+                return 0x01;
+            }
+            
+        }
+        else {
+            NSLog(@"Failed: The -to:%@ should be the existent directory!", toDir);
+            return 0x01;
+        }
+        
     } else if ([option isEqualToString:@"version"]) {
         NSLog(@"version: 10.0.0");
         NSLog(@"main update: fix the crash issue when can't find connected device");
