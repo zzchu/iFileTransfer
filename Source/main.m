@@ -39,6 +39,8 @@ List Applications:\n\
     iFileTransfer -o list -id \"Device_ID\"\n\
 List the crash reports:\n\
     iFileTransfer -o listcrashreport -id \"Device_ID\"\n\
+Delet the synced crash reports:\n\
+    iFileTransfer -o deletsyncedcrashlog -id \"Device_ID\"\n\
 Get the specific crash report:\n\
     iFileTransfer -o getcrashlog -id \"Device_ID\" -from \"from file\" -to \"to file\"\n\
 List Files in Application Documents (path):\n\
@@ -418,9 +420,15 @@ RUN_AGAIN:
 
         AFCCrashLogDirectory *crashLogDir = [device newAFCCrashLogDirectory];
         
-        NSArray *files = [crashLogDir directoryContents:@"/Retired"];
-        NSLog(@"crash report list: %@", files);
+        NSArray *files = [crashLogDir directoryContents:@"/"];
         
+        NSMutableString *formatedList = [NSMutableString stringWithString:@"crash report list:"];
+        for (NSString *fileName in files) {
+            if ( [[fileName pathExtension] isEqualToString:@"ips"]) {
+                [formatedList appendFormat:@"\n        \"%@\"", fileName];
+            }
+        }
+        NSLog(@"%@", formatedList);
     } else if ([option isEqualToString:@"getcrashlog"]) {
         
         NSString *fromFile = [arguments stringForKey:@"from"];
@@ -429,15 +437,15 @@ RUN_AGAIN:
         
         AFCCrashLogDirectory *crashLogDir = [device newAFCCrashLogDirectory];
         
-        NSArray *files = [crashLogDir directoryContents:@"/Retired"];
-        NSLog(@"crash Retired files: %@", files);
+        NSArray *files = [crashLogDir directoryContents:@"/"];
+        NSLog(@"crash files: %@", files);
         
         NSFileManager *fm = [NSFileManager defaultManager];
         BOOL isdir;
         isdir = NO;
         if ([fm fileExistsAtPath:toDir isDirectory:&isdir] && isdir) {
             
-            NSString *fromPath = [NSString stringWithFormat:@"/Retired/%@", fromFile];
+            NSString *fromPath = [NSString stringWithFormat:@"/%@", fromFile];
 
             if (YES == [crashLogDir copyRemoteFile:fromPath toLocalDir:toDir])
             {
@@ -455,9 +463,38 @@ RUN_AGAIN:
             return 0x01;
         }
         
+    } else if ([option isEqualToString:@"deletsyncedcrashlog"]) {
+        
+        //NSString *targetFile = [arguments stringForKey:@"target"];
+        //NSLog(@"Will delet the crash log:%@", targetFile);
+        NSLog(@"Will delet the synced crash log!");
+        
+        AFCCrashLogDirectory *crashLogDir = [device newAFCCrashLogDirectory];
+        
+        NSArray *files = [crashLogDir directoryContents:@"/"];
+        NSLog(@"before crash files: %@", files);
+        
+        for (NSString *fileName in files) {
+            if ( [[fileName pathExtension] isEqualToString:@"synced"]) {
+                NSString *targetPath = [NSString stringWithFormat:@"/%@", fileName];
+                if (NO == [crashLogDir unlink:targetPath])
+                {
+                    NSLog(@"remove path: %@ failed!!", targetPath);
+                    return 0x01;
+                }
+
+            }
+        }
+        files = [crashLogDir directoryContents:@"/"];
+        NSLog(@"after crash files: %@", files);
+        
+        
     } else if ([option isEqualToString:@"version"]) {
         NSLog(@"version: 10.0.0");
         NSLog(@"main update: fix the crash issue when can't find connected device");
+    } else {
+        NSLog(@"Error input parameters! Please check it.");
+        return 0x01;
     }
     
     //[pool drain];
